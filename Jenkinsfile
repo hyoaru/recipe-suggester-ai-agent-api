@@ -114,14 +114,6 @@ pipeline {
     }
 
     stage('Run API') {
-      agent {
-        docker {
-          image 'recipe_suggester_ai_agent_api'
-          args '--network=host -p 7000:7000'
-          reuseNode true
-        }
-      }
-
       steps {
         dir('./api') {
           sh '''
@@ -129,10 +121,16 @@ pipeline {
             ls -al
 
             echo "Starting API..."
-            nohup fastapi run main.py --host 0.0.0.0 --port 7000 &
 
+            docker run -d --rm \
+              --name recipe_suggester_ai_agent_api \
+              --network=host \
+              -v $(pwd):/app \
+              recipe_suggester_ai_agent_api fastapi run main.py --host 0.0.0.0 --port 7000
+            
             echo "Waiting for API to start..."
             sleep 5
+            docker ps -a
           '''
 
           sh "curl ${env.API_BASE_URL}"
@@ -141,21 +139,7 @@ pipeline {
       }
     }
 
-    stage('check containers') {
-      steps {
-        sh 'docker ps -a'
-      }
-    }
-
     stage('Run Tests') {
-      agent {
-        docker {
-          image 'recipe_suggester_ai_agent_api_tests'
-          args '--network=host'
-          reuseNode true
-        }
-      }
-
       steps {
         dir('./api-tests') {
           sh '''
@@ -168,9 +152,13 @@ pipeline {
 
           sh '''
             echo "Running tests..."
-            chmod +x ./run_tests.sh
-            sleep 5
-            bash ./run_tests.sh
+
+            docker run --rm \
+              --name recipe_suggester_ai_agent_api_tests \
+              --network=host \
+              -v $(pwd):/app \
+              recipe_suggester_ai_agent_api_tests robot --outputdir ./results ./tests/suites
+
             echo "Tests completed."
           '''
         }
@@ -178,14 +166,6 @@ pipeline {
     }
 
     stage('Stop API') {
-      agent {
-        docker {
-          image 'recipe_suggester_ai_agent_api'
-          args '--network=host'
-          reuseNode true
-        }
-      }
-
       steps {
         dir('./api') {
           sh '''
@@ -193,7 +173,6 @@ pipeline {
             ls -al
 
             echo "Stopping API..."
-            pkill -f "fastapi run main.py --host 0.0.0.0 --port 7000"
             docker stop recipe_suggester_ai_agent_api
             echo "API stopped"
           '''
