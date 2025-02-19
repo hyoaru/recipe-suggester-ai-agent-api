@@ -9,7 +9,7 @@ pipeline {
     GITHUB_CREDENTIALS_ID = "GITHUB_JENKINS_PAT"
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
     API_BASE_URL = "http://localhost:7000"
-    API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api.git"
+    API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git"
   }
 
 
