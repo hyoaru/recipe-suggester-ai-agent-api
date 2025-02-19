@@ -20,10 +20,14 @@ pipeline {
   stages {
     stage('Clean Workspace') {
       steps {
-        echo "test commit"
-        echo "Cleaning workspace..."
-        cleanWs()
-        echo "Cleaned the workspace."
+        script {
+          def startTime = System.currentTimeMillis()
+          echo "Cleaning workspace..."
+          cleanWs()
+          echo "Cleaned the workspace."
+          def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
+          publishChecks name: 'Clean Workspace', status: 'COMPLETED', title: "Successful in ${duration} minutes"
+        }
       }
     }
 
