@@ -149,6 +149,8 @@ pipeline {
       steps {
         dir('./api-tests') {
           script {
+            githubNotify context: 'CI Build', status: 'PENDING'
+
             step([
               $class: 'GitHubCommitStatusSetter',
               contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins Tests'],
