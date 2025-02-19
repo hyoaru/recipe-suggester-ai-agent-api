@@ -243,13 +243,11 @@ pipeline {
 
     success {
       publishChecks name: 'Tests Completed', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successfully ran tests"
-      publishChecks name: 'Jenkins', status: 'COMPLETED', conclusion: 'SUCCESS'
     }
 
     failure {
       sh 'docker stop recipe_suggester_ai_agent_api'
       publishChecks name: 'Some Tests Failed', status: 'COMPLETED', conclusion: 'FAILURE', title: "Failed to run all tests"
-      publishChecks name: 'Jenkins', status: 'COMPLETED', conclusion: 'FAILURE'
     }
   }
 }
