@@ -9,7 +9,6 @@ pipeline {
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
     API_BASE_URL = "http://localhost:7000"
     API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests"
-    GITHUB_TOKEN_ID = credentials('GITHUB_TOKEN_ID')
   }
 
 
@@ -246,7 +245,7 @@ pipeline {
 void setBuildStatus(String message, String state) {
   step([
       $class: "GitHubCommitStatusSetter",
-      reposSource: [$class: "ManuallyEnteredRepositorySource", url: env.GIT_URL],
+      reposSource: [$class: "ManuallyEnteredRepositorySource", url: "https://github.com/hyoaru/recipe-suggester-ai-agent-api"],
       contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "ci/jenkins/build-status"],
       errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
       statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
