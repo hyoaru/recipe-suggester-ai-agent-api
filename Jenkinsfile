@@ -150,7 +150,7 @@ pipeline {
         dir('./api-tests') {
           script {
             echo "Smoke checks pending..."
-            publishChecks name: 'Tests', summary: 'Running tests with robot framework', text: 'API tests with robot framework', title: 'Run tests'
+            publishChecks conclusion: 'ACTION_REQUIRED', name: 'Test', status: 'IN_PROGRESS', summary: 'Running tests with robot framework', text: 'API tests with robot framework', title: 'Run tests'
           }
 
           sh '''
