@@ -121,45 +121,44 @@ pipeline {
             ls -al
 
             echo "Starting API..."
-
             docker run -d --rm \
               --name recipe_suggester_ai_agent_api \
-              --network=host \
               -v $(pwd):/app \
-              recipe_suggester_ai_agent_api fastapi run main.py --host 0.0.0.0 --port 7000
+              -p "7000":"8000" \
+              recipe_suggester_ai_agent_api fastapi run main.py --host 0.0.0.0 --port 8000
             
             echo "Waiting for API to start..."
             sleep 5
-            docker ps -a
           '''
 
-          sh "curl ${env.API_BASE_URL}"
           sh 'echo "API started"'
         }
       }
     }
 
     stage('Run Tests') {
+      agent {
+        docker {
+          image 'recipe_suggester_ai_agent_api_tests'
+          args '--network=host'
+          reuseNode true
+        }
+      }
+
       steps {
         dir('./api-tests') {
           sh '''
             echo "Current directory: $(pwd)"
             ls -al
           '''
-          
-          echo "Checking API health..."
+
+          echo "Running health check..."
           sh "curl ${env.API_BASE_URL}/api/operations/health"
 
           sh '''
-            echo "Running tests..."
-
-            docker run --rm \
-              --name recipe_suggester_ai_agent_api_tests \
-              --network=host \
-              -v $(pwd):/app \
-              recipe_suggester_ai_agent_api_tests robot --outputdir ./results ./tests/suites
-
-            echo "Tests completed."
+            echo "Running smoke tests..."
+            robot --include smoke --outputdir ./results ./tests/suites
+            echo "Smoke tests completed."
           '''
         }
       }
@@ -179,7 +178,42 @@ pipeline {
         }
       }
     }
+  }
 
+  post {
+    always {
+      echo "Job name: ${env.JOB_NAME}"
+      echo "Build url: ${env.BUILD_URL}"
+      echo "Build id: ${env.BUILD_ID}"
+      echo "Build display name: ${env.BUILD_DISPLAY_NAME}"
+      echo "Build number: ${env.BUILD_NUMBER}"
+      echo "Build tag: ${env.BUILD_TAG}"
 
+      script {
+        def causes = currentBuild.getBuildCauses()
+        causes.each { cause ->
+          echo "Build cause: ${cause.shortDescription}"
+        }
+        
+        // Remove dangling images
+        sh '''
+          danglingImages=$(docker images -f "dangling=true" -q)
+          if [ -n "$danglingImages" ]; then
+            docker image rmi $danglingImages
+          else
+            echo "No dangling images to remove."
+          fi
+        '''
+      }
+    }
+
+    success {
+      echo 'Deployment to Production was successful!'
+    }
+
+    failure {
+      sh 'docker stop recipe_suggester_ai_agent_api'
+      echo 'Deployment to Production failed!'
+    }
   }
 }
