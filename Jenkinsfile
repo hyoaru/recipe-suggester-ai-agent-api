@@ -20,6 +20,7 @@ pipeline {
   stages {
     stage('Clean Workspace') {
       steps {
+        echo "test commit"
         echo "Cleaning workspace..."
         cleanWs()
         echo "Cleaned the workspace."
