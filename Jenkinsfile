@@ -27,7 +27,7 @@ pipeline {
           cleanWs()
           echo "Cleaned the workspace."
           def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
-          publishChecks name: 'Clean Workspace', status: 'COMPLETED', title: "Successful in ${duration} minutes"
+          publishChecks name: 'Clean Workspace', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successful in ${duration} minutes"
         }
       }
     }
@@ -175,7 +175,7 @@ pipeline {
 
           script {
             def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
-            publishChecks name: 'Smoke Test', status: 'COMPLETED', title: "Successful in ${duration} minutes"
+            publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successful in ${duration} minutes"
           }
         }
       }
@@ -242,12 +242,12 @@ pipeline {
     }
 
     success {
-      echo 'Smoke checks passed!'
+      publishChecks name: 'Tests Completed', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successfully ran tests"
     }
 
     failure {
       sh 'docker stop recipe_suggester_ai_agent_api'
-      echo 'Smoke checks failed!'
+      publishChecks name: 'Some Tests Failed', status: 'COMPLETED', conclusion: 'FAILURE', title: "Failed to run all tests"
     }
   }
 }
