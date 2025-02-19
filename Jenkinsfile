@@ -149,20 +149,8 @@ pipeline {
       steps {
         dir('./api-tests') {
           script {
-            publishChecks name: 'Pending', title: 'Pipeline Check', summary: 'check through pipeline',
-              text: 'you can publish checks in pipeline script',
-              detailsURL: 'https://github.com/jenkinsci/checks-api-plugin#pipeline-usage',
-              actions: [[label:'an-user-request-action', description:'actions allow users to request pre-defined behaviours', identifier:'an unique identifier']]
-
-            step([
-              $class: 'GitHubCommitStatusSetter',
-              contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins Tests'],
-              statusResultSource: [$class: 'ConditionalStatusResultSource',
-                results: [
-                  [$class: 'AnyBuildResult', state: 'PENDING', message: 'Tests are running...']
-                ]
-              ]
-            ])
+            echo "Smoke checks pending..."
+            setBuildStatus("Smoke checks pending", "PENDING")
           }
 
           sh '''
@@ -243,33 +231,24 @@ pipeline {
     }
 
     success {
-      step([
-        $class: 'GitHubCommitStatusSetter',
-        contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins Tests'],
-        statusResultSource: [$class: 'ConditionalStatusResultSource',
-          results: [
-            [$class: 'AnyBuildResult', state: 'SUCCESS', message: 'Smoke tests passed!']
-          ]
-        ]
-      ])
-
+      setBuildStatus("Smoke checks passed", "SUCCESS")
       echo 'Smoke checks passed!'
     }
 
     failure {
       sh 'docker stop recipe_suggester_ai_agent_api'
-
-      step([
-        $class: 'GitHubCommitStatusSetter',
-        contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins Tests'],
-        statusResultSource: [$class: 'ConditionalStatusResultSource',
-          results: [
-            [$class: 'AnyBuildResult', state: 'FAILURE', message: 'Smoke tests failed!']
-          ]
-        ]
-      ])
-
+      setBuildStatus("Smoke checks failed", "FAILURE")
       echo 'Smoke checks failed!'
     }
   }
+}
+
+void setBuildStatus(String message, String state) {
+  step([
+      $class: "GitHubCommitStatusSetter",
+      reposSource: [$class: "ManuallyEnteredRepositorySource", url: env.GIT_URL],
+      contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "ci/jenkins/build-status"],
+      errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
+      statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
+  ]);
 }
