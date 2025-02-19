@@ -21,6 +21,7 @@ pipeline {
     stage('Clean Workspace') {
       steps {
         script {
+          publishChecks name: 'Clean Workspace', status: 'IN_PROGRESS', title: "Cleaning workspace"
           def startTime = System.currentTimeMillis()
           echo "Cleaning workspace..."
           cleanWs()
