@@ -6,9 +6,10 @@ pipeline {
   }
 
   environment {
+    GITHUB_CREDENTIALS_ID = "GITHUB_JENKINS_PAT"
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
     API_BASE_URL = "http://localhost:7000"
-    API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests"
+    API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api.git"
   }
 
 
@@ -43,7 +44,7 @@ pipeline {
           steps {
             dir('api-tests') {
               echo "Cloning API-Tests repository..."
-              git branch: 'master', url: "${env.API_TESTS_REPO_URL}"
+              git credentialsId: "${env.GITHUB_CREDENTIALS_ID}", branch: 'master', url: "${env.API_TESTS_REPO_URL}"
               echo "Checked out API-Tests source code."
             }
           }
@@ -149,7 +150,7 @@ pipeline {
         dir('./api-tests') {
           script {
             echo "Smoke checks pending..."
-            setBuildStatus("Smoke checks pending", "PENDING")
+            publishChecks name: 'Tests', summary: 'Running tests with robot framework', text: 'API tests with robot framework', title: 'Run tests'
           }
 
           sh '''
@@ -230,24 +231,12 @@ pipeline {
     }
 
     success {
-      setBuildStatus("Smoke checks passed", "SUCCESS")
       echo 'Smoke checks passed!'
     }
 
     failure {
       sh 'docker stop recipe_suggester_ai_agent_api'
-      setBuildStatus("Smoke checks failed", "FAILURE")
       echo 'Smoke checks failed!'
     }
   }
-}
-
-void setBuildStatus(String message, String state) {
-  step([
-      $class: "GitHubCommitStatusSetter",
-      reposSource: [$class: "ManuallyEnteredRepositorySource", url: "https://github.com/hyoaru/recipe-suggester-ai-agent-api"],
-      contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "ci/jenkins/build-status"],
-      errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
-      statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
-  ]);
 }
