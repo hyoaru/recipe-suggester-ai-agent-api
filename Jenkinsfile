@@ -141,13 +141,11 @@ pipeline {
       }
     }
 
-
-    stage('Check containers') {
+    stage('check containers') {
       steps {
         sh 'docker ps -a'
       }
     }
-
 
     stage('Run Tests') {
       agent {
@@ -171,6 +169,7 @@ pipeline {
           sh '''
             echo "Running tests..."
             chmod +x ./run_tests.sh
+            sleep 5
             bash ./run_tests.sh
             echo "Tests completed."
           '''
