@@ -21,13 +21,9 @@ pipeline {
     stage('Clean Workspace') {
       steps {
         script {
-          publishChecks name: 'Clean Workspace', status: 'IN_PROGRESS', title: "Cleaning workspace"
-          def startTime = System.currentTimeMillis()
           echo "Cleaning workspace..."
           cleanWs()
           echo "Cleaned the workspace."
-          def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
-          publishChecks name: 'Clean Workspace', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successful in ${duration} minutes"
         }
       }
     }
@@ -154,28 +150,35 @@ pipeline {
       steps {
         dir('./api-tests') {
           script {
-            def startTime = System.currentTimeMillis()
-            echo "Smoke checks pending..."
-            publishChecks name: 'Smoke Test', status: 'IN_PROGRESS', title: 'Running smoke tests'
-          }
+            try {
+              def startTime = System.currentTimeMillis()
+              echo "Smoke checks pending..."
+              publishChecks name: 'Smoke Test', status: 'IN_PROGRESS', title: 'Running smoke tests'
 
-          sh '''
-            echo "Current directory: $(pwd)"
-            ls -al
-          '''
+              sh '''
+                echo "Current directory: $(pwd)"
+                ls -al
+              '''
 
-          echo "Running health check..."
-          sh "curl ${env.API_BASE_URL}/api/operations/health"
+              echo "Running health check..."
+              sh "curl ${env.API_BASE_URL}/api/operations/health"
 
-          sh '''
-            echo "Running smoke tests..."
-            robot --include smoke --outputdir ./results ./tests/suites
-            echo "Smoke tests completed."
-          '''
+              sh '''
+                echo "Running smoke tests..."
+                robot --include smoke --outputdir ./results ./tests/suites
+                echo "Smoke tests completed."
+              '''
 
-          script {
-            def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
-            publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successful in ${duration} minutes"
+              def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
+              publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successful in ${duration} minutes"
+
+            } catch (Exception e) {
+              def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
+              echo "Smoke tests failed: ${e.getMessage()}"
+              publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'FAILURE', title: "Failed in ${duration} minutes"
+
+              throw e
+            }
           }
         }
       }
