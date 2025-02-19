@@ -9,6 +9,7 @@ pipeline {
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
     API_BASE_URL = "http://localhost:7000"
     API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests"
+    GITHUB_TOKEN_ID = credentials('GITHUB_TOKEN_ID')
   }
 
 
@@ -147,6 +148,18 @@ pipeline {
 
       steps {
         dir('./api-tests') {
+          script {
+            step([
+              $class: 'GitHubCommitStatusSetter',
+              contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins Tests'],
+              statusResultSource: [$class: 'ConditionalStatusResultSource',
+                results: [
+                  [$class: 'AnyBuildResult', state: 'PENDING', message: 'Tests are running...']
+                ]
+              ]
+            ])
+          }
+
           sh '''
             echo "Current directory: $(pwd)"
             ls -al
@@ -225,12 +238,33 @@ pipeline {
     }
 
     success {
-      echo 'Deployment to Production was successful!'
+      step([
+        $class: 'GitHubCommitStatusSetter',
+        contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins Tests'],
+        statusResultSource: [$class: 'ConditionalStatusResultSource',
+          results: [
+            [$class: 'AnyBuildResult', state: 'SUCCESS', message: 'Smoke tests passed!']
+          ]
+        ]
+      ])
+
+      echo 'Smoke checks passed!'
     }
 
     failure {
       sh 'docker stop recipe_suggester_ai_agent_api'
-      echo 'Deployment to Production failed!'
+
+      step([
+        $class: 'GitHubCommitStatusSetter',
+        contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins Tests'],
+        statusResultSource: [$class: 'ConditionalStatusResultSource',
+          results: [
+            [$class: 'AnyBuildResult', state: 'FAILURE', message: 'Smoke tests failed!']
+          ]
+        ]
+      ])
+
+      echo 'Smoke checks failed!'
     }
   }
 }
