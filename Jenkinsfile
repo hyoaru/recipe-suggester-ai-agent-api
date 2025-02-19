@@ -151,7 +151,6 @@ pipeline {
         dir('./api-tests') {
           script {
             try {
-              def startTime = System.currentTimeMillis()
               echo "Smoke checks pending..."
               publishChecks name: 'Smoke Test', status: 'IN_PROGRESS', title: 'Running smoke tests'
 
@@ -169,13 +168,11 @@ pipeline {
                 echo "Smoke tests completed."
               '''
 
-              def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
-              publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successful in ${duration} minutes"
+              publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
 
             } catch (Exception e) {
-              def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
               echo "Smoke tests failed: ${e.getMessage()}"
-              publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'FAILURE', title: "Failed in ${duration} minutes"
+              publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'FAILURE'
 
               throw e
             }
@@ -246,11 +243,13 @@ pipeline {
 
     success {
       publishChecks name: 'Tests Completed', status: 'COMPLETED', conclusion: 'SUCCESS', title: "Successfully ran tests"
+      publishChecks name: 'Jenkins', status: 'COMPLETED', conclusion: 'SUCCESS'
     }
 
     failure {
       sh 'docker stop recipe_suggester_ai_agent_api'
       publishChecks name: 'Some Tests Failed', status: 'COMPLETED', conclusion: 'FAILURE', title: "Failed to run all tests"
+      publishChecks name: 'Jenkins', status: 'COMPLETED', conclusion: 'FAILURE'
     }
   }
 }
