@@ -117,7 +117,7 @@ pipeline {
       agent {
         docker {
           image 'recipe_suggester_ai_agent_api'
-          args '--network=host'
+          args '--network=host -p 7000:7000'
           reuseNode true
         }
       }
@@ -129,7 +129,7 @@ pipeline {
             ls -al
 
             echo "Starting API..."
-            nohup uvicorn main:app --host 0.0.0.0 --port 7000 > fastapi.log 2>&1 &
+            nohup fastapi run main.py --host 0.0.0.0 --port 7000 &
 
             echo "Waiting for API to start..."
             sleep 5
@@ -138,6 +138,13 @@ pipeline {
           sh "curl ${env.API_BASE_URL}"
           sh 'echo "API started"'
         }
+      }
+    }
+
+
+    stage('Check containers') {
+      steps {
+        sh 'docker ps -a'
       }
     }
 
