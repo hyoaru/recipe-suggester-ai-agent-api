@@ -164,6 +164,23 @@ pipeline {
       }
     }
 
+    stage('Publish Test Reports') {
+      steps {
+        dir('./api-tests') {
+          robot(
+            outputPath: "./results",
+            passThreshold: 90.0,
+            unstableThreshold: 80.0,
+            disableArchiveOutput: true,
+            outputFileName: "output.xml",
+            logFileName: 'log.html',
+            reportFileName: 'report.html',
+            countSkippedTests: true,
+          )
+        }
+      }
+    }
+
     stage('Stop API') {
       steps {
         dir('./api') {
