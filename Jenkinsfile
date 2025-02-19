@@ -129,9 +129,14 @@ pipeline {
             ls -al
 
             echo "Starting API..."
-            nohup fastapi run main.py --host 0.0.0.0 --port 7000 &
-            echo "API started"
+            nohup uvicorn main:app --host 0.0.0.0 --port 7000 > fastapi.log 2>&1 &
+
+            echo "Waiting for API to start..."
+            sleep 5
           '''
+
+          sh "curl ${env.API_BASE_URL}"
+          sh 'echo "API started"'
         }
       }
     }
@@ -151,7 +156,12 @@ pipeline {
           sh '''
             echo "Current directory: $(pwd)"
             ls -al
+          '''
+          
+          echo "Checking API health..."
+          sh "curl ${env.API_BASE_URL}/api/operations/health"
 
+          sh '''
             echo "Running tests..."
             chmod +x ./run_tests.sh
             bash ./run_tests.sh
