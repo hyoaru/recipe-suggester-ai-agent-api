@@ -6,7 +6,6 @@ pipeline {
   }
 
   environment {
-    GITHUB_CREDENTIALS_ID = "GITHUB_JENKINS_PAT"
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
     API_BASE_URL = "http://localhost:7000"
     API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git"
@@ -44,7 +43,7 @@ pipeline {
           steps {
             dir('api-tests') {
               echo "Cloning API-Tests repository..."
-              git credentialsId: "${env.GITHUB_CREDENTIALS_ID}", branch: 'master', url: "${env.API_TESTS_REPO_URL}"
+              git branch: 'master', url: "${env.API_TESTS_REPO_URL}"
               echo "Checked out API-Tests source code."
             }
           }
