@@ -154,8 +154,9 @@ pipeline {
       steps {
         dir('./api-tests') {
           script {
+            def startTime = System.currentTimeMillis()
             echo "Smoke checks pending..."
-            publishChecks conclusion: 'ACTION_REQUIRED', name: 'Test', status: 'IN_PROGRESS', summary: 'Running tests with robot framework', text: 'API tests with robot framework', title: 'Run tests'
+            publishChecks name: 'Smoke Test', status: 'IN_PROGRESS', title: 'Running smoke tests'
           }
 
           sh '''
@@ -171,6 +172,11 @@ pipeline {
             robot --include smoke --outputdir ./results ./tests/suites
             echo "Smoke tests completed."
           '''
+
+          script {
+            def duration = (System.currentTimeMillis() - startTime) / 1000 / 60
+            publishChecks name: 'Smoke Test', status: 'COMPLETED', title: "Successful in ${duration} minutes"
+          }
         }
       }
     }
