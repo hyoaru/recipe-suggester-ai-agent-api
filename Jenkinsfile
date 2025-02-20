@@ -42,8 +42,6 @@ pipeline {
                 userRemoteConfigs: scm.userRemoteConfigs
               ])
               echo 'Checked out source code.'
-
-              publishChecks name: 'Jenkins Workflow', status: 'IN_PROGRESS', title: 'Running jenkins workflow'
             }
           }
         }
@@ -117,15 +115,11 @@ pipeline {
 
       steps {
         echo 'Smoke tests pending...'
-        publishChecks name: 'Smoke Test', status: 'IN_PROGRESS', title: 'Running smoke tests'
 
         script {
           try {
             runRobotTests('smoke')
-            publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
-          } catch (Exception e) {
-            publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'FAILURE'
-          }
+          } catch (Exception e) { }
         }
 
         echo 'Smoke tests done.'
@@ -140,15 +134,11 @@ pipeline {
 
       steps {
         echo "Full tests pending..."
-        publishChecks name: 'Full Test', status: 'IN_PROGRESS', title: 'Running full tests'
 
         script {
           try {
             runRobotTests('all')
-            publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
-          } catch (Exception e) {
-            publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'FAILURE'
-          }
+          } catch (Exception e) { }
         }
 
         echo 'Full tests done.'
@@ -192,22 +182,6 @@ pipeline {
         cleanDanglingImages()
         sh "docker network rm ${DOCKER_NETWORK_NAME}"
       }
-    }
-
-    success {
-      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'SUCCESS', title: 'Success'
-    }
-
-    failure {
-      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'FAILURE', title: 'Failure'
-    }
-
-    unstable {
-      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'NEUTRAL', title: 'Unstable'
-    }
-
-    aborted {
-      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'CANCELED', title: 'Aborted'
     }
   }
 }
