@@ -117,15 +117,13 @@ pipeline {
       steps {
         dir('./api') {
           script {
-            def sanitizedBranch = env.GIT_BRANCH.replaceAll('/', '_')
-
             sh """
               echo "Current directory: \$(pwd)"
               ls -al
 
-              echo "Starting API with container name: recipe_suggester_ai_agent_api_${sanitizedBranch}..."
+              echo "Starting API with container name: recipe_suggester_ai_agent_api_${env.BUILD_TAG}..."
               docker run -d --rm \\
-                --name recipe_suggester_ai_agent_api_${sanitizedBranch} \\
+                --name recipe_suggester_ai_agent_api_${env.BUILD_TAG} \\
                 -v \$(pwd):/app \\
                 -p "7000":"8000" \\
                 recipe_suggester_ai_agent_api fastapi run main.py --host 0.0.0.0 --port 8000
@@ -279,8 +277,7 @@ pipeline {
       echo "Build tag: ${env.BUILD_TAG}"
 
       script {
-        def sanitizedBranch = env.GIT_BRANCH.replaceAll('/', '_')
-        sh "docker stop recipe_suggester_ai_agent_api_${sanitizedBranch}"
+        sh "docker stop recipe_suggester_ai_agent_api_${env.BUILD_TAG}"
 
         def causes = currentBuild.getBuildCauses()
         causes.each { cause ->
