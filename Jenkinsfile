@@ -1,10 +1,6 @@
 pipeline {
   agent any
 
-  triggers {
-    githubPush()
-  }
-
   environment {
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
     API_BASE_URL = "http://localhost:7000"
@@ -36,6 +32,8 @@ pipeline {
               echo "Checking out source code..."
               checkout scm
               echo "Checked out source code."
+
+              publishChecks name: 'Jenkins Workflow', status: 'IN_PROGRESS', title: 'Running jenkins workflow'
             }
           }
         }
@@ -138,7 +136,11 @@ pipeline {
       }
     }
 
-    stage('Run Tests') {
+    stage('Run Smoke Tests') {
+      when {
+        branch 'develop'
+      }
+
       agent {
         docker {
           image 'recipe_suggester_ai_agent_api_tests'
@@ -173,6 +175,55 @@ pipeline {
             } catch (Exception e) {
               echo "Smoke tests failed: ${e.getMessage()}"
               publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'FAILURE'
+
+              throw e
+            }
+          }
+        }
+      }
+    }
+
+
+
+    stage('Run Full Tests') {
+      when {
+        branch 'master'
+      }
+
+      agent {
+        docker {
+          image 'recipe_suggester_ai_agent_api_tests'
+          args '--network=host'
+          reuseNode true
+        }
+      }
+
+      steps {
+        dir('./api-tests') {
+          script {
+            try {
+              echo "Smoke checks pending..."
+              publishChecks name: 'Full Test', status: 'IN_PROGRESS', title: 'Running full tests'
+
+              sh '''
+                echo "Current directory: $(pwd)"
+                ls -al
+              '''
+
+              echo "Running health check..."
+              sh "curl ${env.API_BASE_URL}/api/operations/health"
+
+              sh '''
+                echo "Running full tests..."
+                robot --include full --outputdir ./results ./tests/suites
+                echo "Full tests completed."
+              '''
+
+              publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
+
+            } catch (Exception e) {
+              echo "Full tests failed: ${e.getMessage()}"
+              publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'FAILURE'
 
               throw e
             }
@@ -241,8 +292,13 @@ pipeline {
       }
     }
 
+    success {
+      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'SUCCESS'
+    }
+
     failure {
       sh 'docker stop recipe_suggester_ai_agent_api'
+      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'FAILURE'
     }
   }
 }
