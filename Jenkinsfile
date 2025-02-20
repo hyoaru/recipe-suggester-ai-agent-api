@@ -168,12 +168,6 @@ pipeline {
         }
       }
     }
-
-    stage('Stop API') {
-      steps {
-        stopApiContainer()
-      }
-    }
   }
 
   post {
@@ -191,6 +185,7 @@ pipeline {
           echo "Build cause: ${cause.shortDescription}"
         }
 
+        stopApiContainer()
         cleanDanglingImages()
         sh "docker network rm ${DOCKER_NETWORK_NAME}"
       }
