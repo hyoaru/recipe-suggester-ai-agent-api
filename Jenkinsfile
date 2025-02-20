@@ -3,8 +3,13 @@ pipeline {
 
   environment {
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
-    API_BASE_URL = "http://localhost:7000"
-    API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git"
+    API_BASE_URL = 'http://localhost:7000'
+    API_TESTS_REPO_URL = 'https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git'
+
+    DOCKER_NETWORK_NAME = "recipe_suggester_ai_agent_network_${env.BUILD_TAG}"
+    DOCKER_CONTAINER_NAME_API = "recipe_suggester_ai_agent_api_${env.BUILD_TAG}"
+    DOCKER_IMAGE_NAME_API = 'recipe_suggester_ai_agent_api'
+    DOCKER_IMAGE_NAME_API_TESTS = 'recipe_suggester_ai_agent_api_tests'
   }
 
   options {
@@ -16,9 +21,9 @@ pipeline {
     stage('Clean Workspace') {
       steps {
         script {
-          echo "Cleaning workspace..."
+          echo 'Cleaning workspace...'
           cleanWs()
-          echo "Cleaned the workspace."
+          echo 'Cleaned the workspace.'
         }
       }
     }
@@ -28,22 +33,21 @@ pipeline {
         stage('Checkout API Source Code') {
           steps {
             dir('api') {
-              echo "Checking out source code..."
+              echo 'Checking out source code...'
               checkout scm
-              echo "Checked out source code."
+              echo 'Checked out source code.'
 
               publishChecks name: 'Jenkins Workflow', status: 'IN_PROGRESS', title: 'Running jenkins workflow'
             }
           }
         }
 
-
         stage('Checkout API-Tests Source Code') {
           steps {
             dir('api-tests') {
-              echo "Cloning API-Tests repository..."
-              git branch: 'master', url: "${env.API_TESTS_REPO_URL}"
-              echo "Checked out API-Tests source code."
+              echo 'Cloning API-Tests repository...'
+              git branch: 'master', url: env.API_TESTS_REPO_URL
+              echo 'Checked out API-Tests source code.'
             }
           }
         }
@@ -54,32 +58,20 @@ pipeline {
       parallel {
         stage('Populate Api Environment Variables') {
           steps {
-            dir ('./api') {
-              script {
-                echo "Populating the API environment variables..."
-                def envContent = """
-                  OPENAI_API_KEY=${env.OPENAI_API_KEY}
-                """.stripIndent()
-
-                writeFile file: '.env', text: envContent
-                echo "Api environment file (.env) created succesfully."
-              }
+            script {
+              writeEnvFile("./api", [
+                "OPENAI_API_KEY=${env.OPENAI_API_KEY}"
+              ])
             }
           }
         }
 
         stage('Populate Api-Tests Environment Variables') {
           steps {
-            dir ('./api-tests') {
-              script {
-                echo "Populating the API-Tests environment variables..."
-                def envContent = """
-                  API_BASE_URL=${env.API_BASE_URL}
-                """.stripIndent()
-
-                writeFile file: '.env', text: envContent
-                echo "Api-Tests environment file (.env) created succesfully."
-              }
+            script {
+              writeEnvFile("./api-tests", [
+                "API_BASE_URL=${env.API_BASE_URL}"
+              ])
             }
           }
         }
@@ -88,52 +80,27 @@ pipeline {
 
     stage('Build Docker Images') {
       steps {
-        echo "Building Docker images..."
+        echo 'Building Docker images...'
         sh 'echo "Using docker version: $(docker --version)"'
 
-        dir('./api') {
-          sh '''
-            echo "Building api image..."
-            docker build -t recipe_suggester_ai_agent_api .
-            echo "Api image built."
-          '''
-        }
-
-        dir('./api-tests') {
-          sh '''
-            echo "Building api tests image..."
-            docker build -t recipe_suggester_ai_agent_api_tests .
-            echo "Api tests image built."
-          '''
+        script {
+          buildDockerImage('./api', env.DOCKER_IMAGE_NAME_API)
+          buildDockerImage('./api-tests', env.DOCKER_IMAGE_NAME_API_TESTS)
         }
 
         sh 'docker images'
-        echo "Building images built."
+        echo 'Docker images built'
       }
     }
 
     stage('Run API') {
       steps {
-        dir('./api') {
-          script {
-            sh """
-              echo "Current directory: \$(pwd)"
-              ls -al
+        echo "Creating docker network for API: ${env.DOCKER_NETWORK_NAME}..."
+        sh "docker network create ${env.DOCKER_NETWORK_NAME}"
+        echo 'Docker network created.'
 
-              echo "Starting API with container name: recipe_suggester_ai_agent_api_${env.BUILD_TAG}..."
-              docker run -d --rm \\
-                --name recipe_suggester_ai_agent_api_${env.BUILD_TAG} \\
-                -v \$(pwd):/app \\
-                -p "7000":"8000" \\
-                recipe_suggester_ai_agent_api fastapi run main.py --host 0.0.0.0 --port 8000
-
-              echo "Waiting for API to start..."
-              sleep 5
-            """
-
-            sh 'echo "API started"'
-          }
-        }
+        script { runApiContainer() }
+        sh 'docker ps -a'
       }
     }
 
@@ -142,48 +109,25 @@ pipeline {
         branch 'develop'
       }
 
-      agent {
-        docker {
-          image 'recipe_suggester_ai_agent_api_tests'
-          args '--network=host'
-          reuseNode true
-        }
-      }
-
       steps {
-        dir('./api-tests') {
-          script {
-            try {
-              echo "Smoke checks pending..."
-              publishChecks name: 'Smoke Test', status: 'IN_PROGRESS', title: 'Running smoke tests'
+        echo 'Smoke tests pending...'
+        publishChecks name: 'Smoke Test', status: 'IN_PROGRESS', title: 'Running smoke tests'
 
-              sh '''
-                echo "Current directory: $(pwd)"
-                ls -al
-              '''
+        echo 'Running health check...'
+        sh "curl ${env.API_BASE_URL}/api/operations/health"
 
-              echo "Running health check..."
-              sh "curl ${env.API_BASE_URL}/api/operations/health"
-
-              sh '''
-                echo "Running smoke tests..."
-                robot --include smoke --outputdir ./results ./tests/suites
-                echo "Smoke tests completed."
-              '''
-
-              publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
-
-            } catch (Exception e) {
-              echo "Smoke tests failed: ${e.getMessage()}"
-              publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'FAILURE'
-
-              throw e
-            }
+        script {
+          try {
+            runRobotTests('smoke')
+            publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
+          } catch (Exception e) {
+            publishChecks name: 'Smoke Test', status: 'COMPLETED', conclusion: 'FAILURE'
           }
         }
+
+        echo 'Smoke tests done.'
       }
     }
-
 
 
     stage('Run Full Tests') {
@@ -191,45 +135,23 @@ pipeline {
         branch 'master'
       }
 
-      agent {
-        docker {
-          image 'recipe_suggester_ai_agent_api_tests'
-          args '--network=host'
-          reuseNode true
-        }
-      }
-
       steps {
-        dir('./api-tests') {
-          script {
-            try {
-              echo "Smoke checks pending..."
-              publishChecks name: 'Full Test', status: 'IN_PROGRESS', title: 'Running full tests'
+        echo "Full tests pending..."
+        publishChecks name: 'Full Test', status: 'IN_PROGRESS', title: 'Running full tests'
 
-              sh '''
-                echo "Current directory: $(pwd)"
-                ls -al
-              '''
+        echo 'Running health check...'
+        sh "curl ${env.API_BASE_URL}/api/operations/health"
 
-              echo "Running health check..."
-              sh "curl ${env.API_BASE_URL}/api/operations/health"
-
-              sh '''
-                echo "Running full tests..."
-                robot --include full --outputdir ./results ./tests/suites
-                echo "Full tests completed."
-              '''
-
-              publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
-
-            } catch (Exception e) {
-              echo "Full tests failed: ${e.getMessage()}"
-              publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'FAILURE'
-
-              throw e
-            }
+        script {
+          try {
+            runRobotTests()
+            publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
+          } catch (Exception e) {
+            publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'FAILURE'
           }
         }
+
+        echo 'Full tests done.'
       }
     }
 
@@ -252,16 +174,7 @@ pipeline {
 
     stage('Stop API') {
       steps {
-        dir('./api') {
-          sh '''
-            echo "Current directory: $(pwd)"
-            ls -al
-
-            echo "Stopping API..."
-            docker "stop recipe_suggester_ai_agent_api_${env.BUILD_TAG}"
-            echo "API stopped"
-          '''
-        }
+        stopApiContainer()
       }
     }
   }
@@ -280,16 +193,8 @@ pipeline {
         causes.each { cause ->
           echo "Build cause: ${cause.shortDescription}"
         }
-        
-        // Remove dangling images
-        sh '''
-          danglingImages=$(docker images -f "dangling=true" -q)
-          if [ -n "$danglingImages" ]; then
-            docker image rmi $danglingImages
-          else
-            echo "No dangling images to remove."
-          fi
-        '''
+
+        cleanDanglingImages()  
       }
     }
 
@@ -300,5 +205,70 @@ pipeline {
     failure {
       publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'FAILURE'
     }
+  }
+}
+
+
+void cleanDanglingImages() {
+  sh '''
+    danglingImages=$(docker images -f "dangling=true" -q)
+    if [ -n "$danglingImages" ]; then
+      docker image rmi $danglingImages
+    else
+      echo "No dangling images to remove."
+    fi
+  '''
+}
+
+void runRobotTests(String testType) {
+  dir('./api-tests') {
+    docker.image(env.DOCKER_IMAGE_NAME_API_TESTS).inside("--network=${env.DOCKER_NETWORK_NAME}") {
+      if (testType) {
+        sh "robot --include ${testType} --outputdir ./results ./tests/suites"
+      } else {
+        sh "robot --outputdir ./results ./tests/suites"
+      }
+    }
+  }
+}
+
+void stopApiContainer() {
+  echo "Stopping API with container name: ${env.DOCKER_CONTAINER_NAME_API}..."
+  sh "docker stop ${env.DOCKER_CONTAINER_NAME_API}"
+  echo 'Stopped API.'
+}
+
+void runApiContainer() {
+  echo "Starting API with container name: ${env.DOCKER_CONTAINER_NAME_API}..."
+
+  dir ('./api') {
+    sh """
+      docker run -d --rm \
+        --name ${env.DOCKER_CONTAINER_NAME_API} \
+        --network=${env.DOCKER_NETWORK_NAME} \
+        -v \$(pwd):/app \
+        -p '7000':'8000' \
+        ${env.DOCKER_IMAGE_NAME_API} fastapi run main.py --host 0.0.0.0 --port 8000
+    """
+  }
+
+  echo 'Waiting for API to start...'
+  sleep 5
+  echo 'Started API.'
+}
+
+void writeEnvFile(String directory, List<String> variables) {
+  dir(directory) {
+    echo "Writing .env file at ${directory}..."
+    writeFile file: '.env', text: variables.join('\n')
+    echo "Environment file created successfully at ${directory}."
+  }
+}
+
+void buildDockerImage(String directory, String imageName) {
+  dir(directory) {
+    echo "Building ${imageName} image..."
+    sh "docker build -t ${imageName} ."
+    echo "${imageName} image built."
   }
 }
