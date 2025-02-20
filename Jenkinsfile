@@ -37,7 +37,7 @@ pipeline {
             dir('api') {
               echo 'Checking out source code...'
               checkout scmGit([
-                branches: [[name: '**']],
+                branches: [[name: env.BRANCH_NAME]],
                 extensions: [[$class: 'GitSCMStatusChecksExtension', skip: true]],
                 userRemoteConfigs: scm.userRemoteConfigs
               ])
