@@ -113,9 +113,6 @@ pipeline {
         echo 'Smoke tests pending...'
         publishChecks name: 'Smoke Test', status: 'IN_PROGRESS', title: 'Running smoke tests'
 
-        echo 'Running health check...'
-        sh "curl ${env.API_BASE_URL}/api/operations/health"
-
         script {
           try {
             runRobotTests('smoke')
@@ -217,7 +214,7 @@ void runRobotTests(String testType) {
   dir('./api-tests') {
     docker.image(env.DOCKER_IMAGE_NAME_API_TESTS).inside("--network=${env.DOCKER_NETWORK_NAME}") {
       echo 'Running health check...'
-      sh "curl ${env.API_BASE_URL}/api/operations/health"
+      sh "curl ${env.DOCKER_CONTAINER_NAME_API}:7000/api/operations/health"
 
       if (testType) {
         sh "robot --include ${testType} --outputdir ./results ./tests/suites"
@@ -243,8 +240,7 @@ void runApiContainer() {
         --name ${env.DOCKER_CONTAINER_NAME_API} \
         --network=${env.DOCKER_NETWORK_NAME} \
         -v \$(pwd):/app \
-        -p '7000':'8000' \
-        ${env.DOCKER_IMAGE_NAME_API} fastapi run main.py --host 0.0.0.0 --port 8000
+        ${env.DOCKER_IMAGE_NAME_API} fastapi run main.py --host 0.0.0.0 --port 7000
     """
   }
 
