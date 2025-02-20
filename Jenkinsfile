@@ -194,7 +194,8 @@ pipeline {
           echo "Build cause: ${cause.shortDescription}"
         }
 
-        cleanDanglingImages()  
+        cleanDanglingImages()
+        sh "docker network rm ${DOCKER_NETWORK_NAME}"
       }
     }
 
