@@ -207,7 +207,7 @@ pipeline {
     }
 
     aborted {
-      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'CANCELLED', title: 'Aborted'
+      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'CANCELED', title: 'Aborted'
     }
   }
 }
