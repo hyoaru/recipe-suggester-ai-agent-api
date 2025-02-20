@@ -116,22 +116,26 @@ pipeline {
     stage('Run API') {
       steps {
         dir('./api') {
-          sh '''
-            echo "Current directory: $(pwd)"
-            ls -al
+          script {
+            def sanitizedBranch = env.GIT_BRANCH.replaceAll('/', '_')
 
-            echo "Starting API..."
-            docker run -d --rm \
-              --name recipe_suggester_ai_agent_api \
-              -v $(pwd):/app \
-              -p "7000":"8000" \
-              recipe_suggester_ai_agent_api fastapi run main.py --host 0.0.0.0 --port 8000
-            
-            echo "Waiting for API to start..."
-            sleep 5
-          '''
+            sh """
+              echo "Current directory: \$(pwd)"
+              ls -al
 
-          sh 'echo "API started"'
+              echo "Starting API with container name: recipe_suggester_ai_agent_api_${sanitizedBranch}..."
+              docker run -d --rm \\
+                --name recipe_suggester_ai_agent_api_${sanitizedBranch} \\
+                -v \$(pwd):/app \\
+                -p "7000":"8000" \\
+                recipe_suggester_ai_agent_api fastapi run main.py --host 0.0.0.0 --port 8000
+
+              echo "Waiting for API to start..."
+              sleep 5
+            """
+
+            sh 'echo "API started"'
+          }
         }
       }
     }
@@ -275,6 +279,9 @@ pipeline {
       echo "Build tag: ${env.BUILD_TAG}"
 
       script {
+        def sanitizedBranch = env.GIT_BRANCH.replaceAll('/', '_')
+        sh "docker stop recipe_suggester_ai_agent_api_${sanitizedBranch}"
+
         def causes = currentBuild.getBuildCauses()
         causes.each { cause ->
           echo "Build cause: ${cause.shortDescription}"
@@ -297,7 +304,6 @@ pipeline {
     }
 
     failure {
-      sh 'docker stop recipe_suggester_ai_agent_api'
       publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'FAILURE'
     }
   }
