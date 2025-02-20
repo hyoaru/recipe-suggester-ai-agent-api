@@ -36,7 +36,11 @@ pipeline {
           steps {
             dir('api') {
               echo 'Checking out source code...'
-              checkout scm
+              checkout scmGit([
+                branches: [[name: '**']],
+                extensions: [[$class: 'GitSCMStatusChecksExtension', skip: true]],
+                userRemoteConfigs: scm.userRemoteConfigs
+              ])
               echo 'Checked out source code.'
 
               publishChecks name: 'Jenkins Workflow', status: 'IN_PROGRESS', title: 'Running jenkins workflow'
