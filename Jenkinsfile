@@ -144,7 +144,7 @@ pipeline {
 
         script {
           try {
-            runRobotTests()
+            runRobotTests('all')
             publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'SUCCESS' 
           } catch (Exception e) {
             publishChecks name: 'Full Test', status: 'COMPLETED', conclusion: 'FAILURE'
@@ -222,7 +222,7 @@ void runRobotTests(String testType) {
       echo 'Running health check...'
       sh "curl ${env.DOCKER_CONTAINER_NAME_API}:7000/api/operations/health"
 
-      if (testType) {
+      if (testType != 'all') {
         sh "robot --include ${testType} --outputdir ./results ./tests/suites"
       } else {
         sh "robot --outputdir ./results ./tests/suites"
