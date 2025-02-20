@@ -7,7 +7,6 @@ pipeline {
     API_TESTS_REPO_URL = "https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git"
   }
 
-
   options {
     // Required step for cleaning before build
     skipDefaultCheckout(true)
@@ -259,7 +258,7 @@ pipeline {
             ls -al
 
             echo "Stopping API..."
-            docker stop recipe_suggester_ai_agent_api
+            docker stop recipe_suggester_ai_agent_api_${env.BUILD_TAG}
             echo "API stopped"
           '''
         }
@@ -277,8 +276,6 @@ pipeline {
       echo "Build tag: ${env.BUILD_TAG}"
 
       script {
-        sh "docker stop recipe_suggester_ai_agent_api_${env.BUILD_TAG}"
-
         def causes = currentBuild.getBuildCauses()
         causes.each { cause ->
           echo "Build cause: ${cause.shortDescription}"
