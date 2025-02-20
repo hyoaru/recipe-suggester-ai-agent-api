@@ -2,14 +2,16 @@ pipeline {
   agent any
 
   environment {
-    OPENAI_API_KEY = credentials('OPENAI_API_KEY')
-    API_BASE_URL = 'http://localhost:7000'
     API_TESTS_REPO_URL = 'https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git'
 
     DOCKER_NETWORK_NAME = "recipe_suggester_ai_agent_network_${env.BRANCH_NAME}_${env.BUILD_ID}"
     DOCKER_CONTAINER_NAME_API = "recipe_suggester_ai_agent_api_${env.BRANCH_NAME}_${env.BUILD_ID}"
     DOCKER_IMAGE_NAME_API = 'recipe_suggester_ai_agent_api'
     DOCKER_IMAGE_NAME_API_TESTS = 'recipe_suggester_ai_agent_api_tests'
+
+    // Services environment variables
+    OPENAI_API_KEY = credentials('OPENAI_API_KEY')
+    API_BASE_URL = "http://${env.DOCKER_CONTAINER_NAME_API}:7000"
   }
 
   options {
