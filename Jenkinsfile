@@ -139,9 +139,6 @@ pipeline {
         echo "Full tests pending..."
         publishChecks name: 'Full Test', status: 'IN_PROGRESS', title: 'Running full tests'
 
-        echo 'Running health check...'
-        sh "curl ${env.API_BASE_URL}/api/operations/health"
-
         script {
           try {
             runRobotTests()
@@ -224,6 +221,9 @@ void cleanDanglingImages() {
 void runRobotTests(String testType) {
   dir('./api-tests') {
     docker.image(env.DOCKER_IMAGE_NAME_API_TESTS).inside("--network=${env.DOCKER_NETWORK_NAME}") {
+      echo 'Running health check...'
+      sh "curl ${env.API_BASE_URL}/api/operations/health"
+
       if (testType) {
         sh "robot --include ${testType} --outputdir ./results ./tests/suites"
       } else {
