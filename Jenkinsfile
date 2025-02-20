@@ -195,11 +195,19 @@ pipeline {
     }
 
     success {
-      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'SUCCESS'
+      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'SUCCESS', title: 'Success'
     }
 
     failure {
-      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'FAILURE'
+      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'FAILURE', title: 'Failure'
+    }
+
+    unstable {
+      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'NEUTRAL', title: 'Unstable'
+    }
+
+    aborted {
+      publishChecks name: 'Jenkins Workflow', status: 'COMPLETED', conclusion: 'CANCELED', title: 'Aborted'
     }
   }
 }
