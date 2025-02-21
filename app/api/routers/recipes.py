@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, constr
 
 from app.agents.recipe_suggester.agent import RecipeSuggesterAgent
 from app.agents.recipe_suggester.interfaces import RecipeSuggesterAgentABC
@@ -9,9 +9,10 @@ from loguru import logger
 
 router = APIRouter()
 
-
 class RecipeSuggestBody(BaseModel):
-    ingredients: List[str]
+    ingredients: List[constr(pattern=r'^[a-zA-Z\-_]+$')] = Field(
+        example=["egg", "butter"]
+    )
 
 
 @router.post("/recipes/suggest", response_model=List[Recipe])
