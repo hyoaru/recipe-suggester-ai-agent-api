@@ -111,7 +111,7 @@ pipeline {
       when {
         anyOf {
           branch 'develop'
-          branch 'feature*'
+          expression { env.BRANCH_NAME.startsWith('feature') }
         }
       }
 
@@ -133,7 +133,7 @@ pipeline {
       when {
         anyOf {
           branch 'master'
-          branch 'release*'
+          expression { env.BRANCH_NAME.startsWith('release') }
         }
       }
 
