@@ -2,10 +2,11 @@ pipeline {
   agent any
 
   environment {
+    sanitized_branch_name = env.BRANCH_NAME.replaceAll('/', '-')
     API_TESTS_REPO_URL = 'https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git'
 
-    DOCKER_NETWORK_NAME = "recipe_suggester_ai_agent_network_${env.BRANCH_NAME}_${env.BUILD_ID}"
-    DOCKER_CONTAINER_NAME_API = "recipe_suggester_ai_agent_api_${env.BRANCH_NAME}_${env.BUILD_ID}"
+    DOCKER_NETWORK_NAME = "recipe_suggester_ai_agent_network_${env.sanitized_branch_name}_${env.BUILD_ID}"
+    DOCKER_CONTAINER_NAME_API = "recipe_suggester_ai_agent_api_${env.sanitized_branch_name}_${env.BUILD_ID}"
     DOCKER_IMAGE_NAME_API = 'recipe_suggester_ai_agent_api'
     DOCKER_IMAGE_NAME_API_TESTS = 'recipe_suggester_ai_agent_api_tests'
 
