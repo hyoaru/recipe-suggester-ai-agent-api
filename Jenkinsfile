@@ -260,16 +260,27 @@ void runRobotTests(String testType) {
 }
 
 void stopApiContainer(String environment) {
+  String containerName
+
   if (environment == 'production') {
-    echo "Stopping production API with container name: ${env.DOCKER_CONTAINER_NAME_API_PRODUCTION}..."
-    sh "docker stop ${env.DOCKER_CONTAINER_NAME_API_PRODUCTION}"
+    containerName = env.DOCKER_CONTAINER_NAME_API_PRODUCTION
+    echo "Stopping production API with container name: ${containerName}..."
   } else if (environment == 'test') {
-    echo "Stopping test API with container name: ${env.DOCKER_CONTAINER_NAME_API}..."
-    sh "docker stop ${env.DOCKER_CONTAINER_NAME_API}"
+    containerName = env.DOCKER_CONTAINER_NAME_API
+    echo "Stopping test API with container name: ${containerName}..."
   } else {
     error "Invalid environment specified: ${environment}. Please use 'production' or 'test'."
   }
-  echo 'Stopped API.'
+
+  // Check if the container exists
+  def containerExists = sh(script: "docker ps -q -f name=${containerName}", returnStdout: true).trim()
+
+  if (containerExists) {
+    sh "docker stop ${containerName}"
+    echo 'Stopped API.'
+  } else {
+    echo "Container ${containerName} does not exist. No action taken."
+  }
 }
 
 void runApiContainer(String environment) {
