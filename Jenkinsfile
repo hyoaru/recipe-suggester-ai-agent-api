@@ -2,12 +2,15 @@ pipeline {
   agent any
 
   environment {
+    sanitized_branch_name = env.BRANCH_NAME.replaceAll('/', '-')
     API_TESTS_REPO_URL = 'https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git'
 
-    DOCKER_NETWORK_NAME = "recipe_suggester_ai_agent_network_${env.BRANCH_NAME}_${env.BUILD_ID}"
-    DOCKER_CONTAINER_NAME_API = "recipe_suggester_ai_agent_api_${env.BRANCH_NAME}_${env.BUILD_ID}"
+    DOCKER_NETWORK_NAME = "recipe_suggester_ai_agent_network_${env.sanitized_branch_name}_${env.BUILD_ID}"
+    DOCKER_CONTAINER_NAME_API = "recipe_suggester_ai_agent_api_${env.sanitized_branch_name}_${env.BUILD_ID}"
     DOCKER_IMAGE_NAME_API = 'recipe_suggester_ai_agent_api'
     DOCKER_IMAGE_NAME_API_TESTS = 'recipe_suggester_ai_agent_api_tests'
+    DOCKER_IMAGE_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production_build_${env.BUILD_ID}"
+    DOCKER_CONTAINER_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production"
 
     // Services environment variables
     OPENAI_API_KEY = credentials('OPENAI_API_KEY')
@@ -99,14 +102,17 @@ pipeline {
         sh "docker network create ${env.DOCKER_NETWORK_NAME}"
         echo 'Docker network created.'
 
-        script { runApiContainer() }
+        script { runApiContainer('test') }
         sh 'docker ps -a'
       }
     }
 
     stage('Run Smoke Tests') {
       when {
-        branch 'develop'
+        anyOf {
+          branch 'develop'
+          expression { env.BRANCH_NAME.startsWith('feature') }
+        }
       }
 
       steps {
@@ -125,7 +131,10 @@ pipeline {
 
     stage('Run Full Tests') {
       when {
-        branch 'master'
+        anyOf {
+          branch 'master'
+          expression { env.BRANCH_NAME.startsWith('release') }
+        }
       }
 
       steps {
@@ -157,7 +166,41 @@ pipeline {
         }
       }
     }
+
+    stage ('Build Docker Image For Production') {
+      when {
+        branch 'master'
+      }
+
+      steps {
+        echo 'Building api docker image for production...'
+        sh 'echo "Using docker version: $(docker --version)"'
+
+        script {
+          buildDockerImage('./api', env.DOCKER_IMAGE_NAME_API_PRODUCTION)
+        }
+
+        sh 'docker images'
+        echo 'Docker api image for production built.'
+      }
+    }
+
+
+    stage ('Deploy') {
+      when {
+        branch 'master'
+      }
+
+      steps {
+        script {
+          // Stop the production api container to then run the rebuilt image
+          stopApiContainer('production')
+          runApiContainer('production')
+        }
+      }
+    }
   }
+
 
   post {
     always {
@@ -174,9 +217,16 @@ pipeline {
           echo "Build cause: ${cause.shortDescription}"
         }
 
-        stopApiContainer()
+        stopApiContainer('test')
         cleanDanglingImages()
         sh "docker network rm ${DOCKER_NETWORK_NAME}"
+
+
+        // Prune images every 5 builds based on BUILD_ID
+        if (env.BUILD_ID.toInteger() % 5 == 0) {
+          echo "Pruning old Docker images..."
+          sh 'yes | docker image prune -a'
+        }
       }
     }
   }
@@ -209,23 +259,42 @@ void runRobotTests(String testType) {
   }
 }
 
-void stopApiContainer() {
-  echo "Stopping API with container name: ${env.DOCKER_CONTAINER_NAME_API}..."
-  sh "docker stop ${env.DOCKER_CONTAINER_NAME_API}"
+void stopApiContainer(String environment) {
+  if (environment == 'production') {
+    echo "Stopping production API with container name: ${env.DOCKER_CONTAINER_NAME_API_PRODUCTION}..."
+    sh "docker stop ${env.DOCKER_CONTAINER_NAME_API_PRODUCTION}"
+  } else if (environment == 'test') {
+    echo "Stopping test API with container name: ${env.DOCKER_CONTAINER_NAME_API}..."
+    sh "docker stop ${env.DOCKER_CONTAINER_NAME_API}"
+  } else {
+    error "Invalid environment specified: ${environment}. Please use 'production' or 'test'."
+  }
   echo 'Stopped API.'
 }
 
-void runApiContainer() {
-  echo "Starting API with container name: ${env.DOCKER_CONTAINER_NAME_API}..."
+void runApiContainer(String environment) {
+  echo "Starting ${environment} environment API container..."
 
   dir ('./api') {
-    sh """
-      docker run -d --rm \
-        --name ${env.DOCKER_CONTAINER_NAME_API} \
-        --network=${env.DOCKER_NETWORK_NAME} \
-        -v \$(pwd):/app \
-        ${env.DOCKER_IMAGE_NAME_API} fastapi run main.py --host 0.0.0.0 --port 7000
-    """
+    if (environment == 'production') {
+      sh """
+        docker run -d --rm \
+          --name ${env.DOCKER_CONTAINER_NAME_API_PRODUCTION} \
+          --network host \
+          -v \$(pwd):/app \
+          ${env.DOCKER_IMAGE_NAME_API_PRODUCTION} 
+      """
+    } else if (environment == 'test') {
+      sh """
+        docker run -d --rm \
+          --name ${env.DOCKER_CONTAINER_NAME_API} \
+          --network=${env.DOCKER_NETWORK_NAME} \
+          -v \$(pwd):/app \
+          ${env.DOCKER_IMAGE_NAME_API} fastapi run main.py --host 0.0.0.0 --port 7000
+      """
+    } else {
+      error "Invalid environment specified: ${environment}. Please use 'production' or 'test'."
+    }
   }
 
   echo 'Waiting for API to start...'
