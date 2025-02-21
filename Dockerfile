@@ -10,4 +10,6 @@ RUN pip install uv && uv sync
 RUN uv pip freeze > requirements.txt
 RUN pip install -r requirements.txt
 
+COPY . .
+
 CMD [ "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000" ]
