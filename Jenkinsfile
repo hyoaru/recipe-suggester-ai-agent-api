@@ -107,7 +107,10 @@ pipeline {
 
     stage('Run Smoke Tests') {
       when {
-        branch 'develop'
+        anyOf {
+          branch 'develop'
+          branch 'feature*'
+        }
       }
 
       steps {
