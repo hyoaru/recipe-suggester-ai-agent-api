@@ -111,6 +111,7 @@ pipeline {
       when {
         anyOf {
           branch 'develop'
+          expression { env.CHANGE_TARGET == 'develop' }
           expression { env.BRANCH_NAME.startsWith('feature') }
         }
       }
@@ -133,6 +134,7 @@ pipeline {
       when {
         anyOf {
           branch 'master'
+          expression { env.CHANGE_TARGET == 'master' }
           expression { env.BRANCH_NAME.startsWith('release') }
         }
       }
@@ -170,9 +172,11 @@ pipeline {
     stage ('Run SonarQube Analysis') {
       when {
         anyOf {
-          branch 'develop'
-          expression { env.BRANCH_NAME.startsWith('release') }
           branch 'master'
+          expression { env.CHANGE_TARGET == 'master' }
+          branch 'develop'
+          expression { env.CHANGE_TARGET == 'master' }
+          expression { env.BRANCH_NAME.startsWith('release') }
         }
       }
 
@@ -192,6 +196,16 @@ pipeline {
     }
 
     stage('Quality Gate') {
+      when {
+        anyOf {
+          branch 'master'
+          expression { env.CHANGE_TARGET == 'master' }
+          branch 'develop'
+          expression { env.CHANGE_TARGET == 'master' }
+          expression { env.BRANCH_NAME.startsWith('release') }
+        }
+      }
+
       steps {
         script {
           timeout(time: 5, unit: 'MINUTES') {
