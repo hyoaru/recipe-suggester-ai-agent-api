@@ -23,6 +23,7 @@ def create_app():
         CORSMiddleware,
         allow_origins=[
             "http://localhost:8002",
+            "http://localhost:8001",
             "https://hyoaru.github.io/recipe-suggester-ai",
             "https://recipe-ai.anonalyze.org",
         ],
