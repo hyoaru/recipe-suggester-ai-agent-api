@@ -107,7 +107,7 @@ pipeline {
       }
     }
 
-    stage('Run Smoke Tests') {
+    stage('Run Robot Smoke Tests') {
       when {
         anyOf {
           branch 'develop'
@@ -129,7 +129,7 @@ pipeline {
     }
 
 
-    stage('Run Full Tests') {
+    stage('Run Robot Full Tests') {
       when {
         anyOf {
           branch 'master'
@@ -150,7 +150,7 @@ pipeline {
       }
     }
 
-    stage('Publish Test Reports') {
+    stage('Publish Robot Test Reports') {
       steps {
         dir('./api-tests') {
           robot(
@@ -163,6 +163,40 @@ pipeline {
             reportFileName: 'report.html',
             countSkippedTests: true,
           )
+        }
+      }
+    }
+
+    stage ('Run SonarQube Analysis') {
+      when {
+        anyOf {
+          branch 'develop'
+          expression { env.BRANCH_NAME.startsWith('release') }
+          branch 'master'
+        }
+      }
+
+      environment {
+        SONAR_SCANNER = tool name: 'SonarQubeScanner-7.0.2'
+        SONAR_PROJECT_KEY = "recipe-suggester-ai-agent-api"
+      }
+
+      steps {
+        dir('./api') {
+          withSonarQubeEnv('SonarQube') {
+            sh "${SONAR_SCANNER}/bin/sonar-scanner -Dsonar.projectKey=${env.SONAR_PROJECT_KEY}"
+          }
+        }
+      }
+
+    }
+
+    stage('Quality Gate') {
+      steps {
+        script {
+          timeout(time: 5, unit: 'MINUTES') {
+            waitForQualityGate abortPipeline: true
+          }
         }
       }
     }
