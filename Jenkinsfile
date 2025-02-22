@@ -175,7 +175,7 @@ pipeline {
           branch 'master'
           expression { env.CHANGE_TARGET == 'master' }
           branch 'develop'
-          expression { env.CHANGE_TARGET == 'master' }
+          expression { env.CHANGE_TARGET == 'develop' }
           expression { env.BRANCH_NAME.startsWith('release') }
         }
       }
@@ -201,7 +201,7 @@ pipeline {
           branch 'master'
           expression { env.CHANGE_TARGET == 'master' }
           branch 'develop'
-          expression { env.CHANGE_TARGET == 'master' }
+          expression { env.CHANGE_TARGET == 'develop' }
           expression { env.BRANCH_NAME.startsWith('release') }
         }
       }
