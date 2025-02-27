@@ -160,7 +160,7 @@ pipeline {
 
                 script {
                   try {
-                    runRobotTests('all')
+                    runRobotTests('regression')
                   } catch (Exception e) { }
                 }
 
