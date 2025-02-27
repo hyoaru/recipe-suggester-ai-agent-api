@@ -306,9 +306,9 @@ void runRobotTests(String testType) {
       sh "curl ${env.DOCKER_CONTAINER_NAME_API}:7000/api/operations/health"
 
       if (testType != 'all') {
-        sh "robot --include ${testType} --outputdir ./results ./tests/suites"
+        sh "pabot --include ${testType} --outputdir ./results --testlevelsplit ./tests/suites"
       } else {
-        sh "robot --outputdir ./results ./tests/suites"
+        sh "pabot --outputdir ./results --testlevelsplit ./tests/suites"
       }
     }
   }
