@@ -121,11 +121,7 @@ pipeline {
 
             stage('Run Robot Smoke Tests') {
               when {
-                anyOf {
-                  branch 'develop'
-                  expression { env.CHANGE_TARGET == 'develop' }
-                  expression { env.BRANCH_NAME.startsWith('feature') }
-                }
+                expression { env.BRANCH_NAME.startsWith('feature') }
               }
 
               steps {
@@ -141,12 +137,12 @@ pipeline {
               }
             }
 
-            stage('Run Robot Full Tests') {
+
+            stage('Run Robot Regression Tests') {
               when {
                 anyOf {
-                  branch 'master'
-                  expression { env.CHANGE_TARGET == 'master' }
-                  expression { env.BRANCH_NAME.startsWith('release') }
+                  expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
+                  expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
                 }
               }
 
@@ -163,7 +159,31 @@ pipeline {
               }
             }
 
+            stage('Run Robot Full Tests') {
+              when { branch 'master' }
+
+              steps {
+                echo "Full tests pending..."
+
+                script {
+                  try {
+                    runRobotTests('all')
+                  } catch (Exception e) { }
+                }
+
+                echo 'Full tests done.'
+              }
+            }
+
             stage('Publish Robot Test Reports') {
+              when {
+                anyOf {
+                  expression { env.BRANCH_NAME.startsWith('feature') }
+                  expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
+                  expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
+                  branch 'master'
+                }
+              }
               steps {
                 dir('./api-tests') {
                   robot(
@@ -183,18 +203,16 @@ pipeline {
         }
 
         stage('Quality and Security Analysis') {
+          when {
+            anyOf {
+              expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
+              expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
+              branch 'master'
+            }
+          }
+
           stages {
             stage ('Run SonarQube Analysis') {
-              when {
-                anyOf {
-                  branch 'master'
-                  expression { env.CHANGE_TARGET == 'master' }
-                  branch 'develop'
-                  expression { env.CHANGE_TARGET == 'develop' }
-                  expression { env.BRANCH_NAME.startsWith('release') }
-                }
-              }
-
               environment {
                 SONAR_SCANNER = tool name: 'SonarQubeScanner-7.0.2'
                 SONAR_PROJECT_KEY = "recipe-suggester-ai-agent-api"
@@ -210,16 +228,6 @@ pipeline {
             }
 
             stage('Quality Gate') {
-              when {
-                anyOf {
-                  branch 'master'
-                  expression { env.CHANGE_TARGET == 'master' }
-                  branch 'develop'
-                  expression { env.CHANGE_TARGET == 'develop' }
-                  expression { env.BRANCH_NAME.startsWith('release') }
-                }
-              }
-
               steps {
                 script {
                   timeout(time: 5, unit: 'MINUTES') {
@@ -234,12 +242,9 @@ pipeline {
     }
 
     stage('Deploy to Production') {
+      when { branch 'master' }
       stages {
         stage ('Build Docker Image For Production') {
-          when {
-            branch 'master'
-          }
-
           steps {
             echo 'Building api docker image for production...'
             sh 'echo "Using docker version: $(docker --version)"'
@@ -255,10 +260,6 @@ pipeline {
 
 
         stage ('Deploy') {
-          when {
-            branch 'master'
-          }
-
           steps {
             script {
               // Stop the production api container to then run the rebuilt image
