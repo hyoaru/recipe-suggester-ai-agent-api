@@ -92,6 +92,15 @@ pipeline {
     stage('Run Tests and Quality Analysis') {
       parallel {
         stage('Run Tests') {
+          when {
+            anyOf {
+              expression { env.BRANCH_NAME.startsWith('feature') }
+              expression { script { env.CHANGE_BRANCH.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+              expression { script { env.CHANGE_BRANCH.startsWith('release') && env.CHANGE_TARGET == 'master' } }
+              branch 'master'
+            }
+          }
+
           stages {
             stage('Build Docker Images') {
               steps {
@@ -141,8 +150,8 @@ pipeline {
             stage('Run Robot Regression Tests') {
               when {
                 anyOf {
-                  expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
-                  expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
+                  expression { script { env.CHANGE_BRANCH.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+                  expression { script { env.CHANGE_BRANCH.startsWith('release') && env.CHANGE_TARGET == 'master' } }
                 }
               }
 
@@ -151,7 +160,7 @@ pipeline {
 
                 script {
                   try {
-                    runRobotTests('all')
+                    runRobotTests('regression')
                   } catch (Exception e) { }
                 }
 
@@ -176,14 +185,6 @@ pipeline {
             }
 
             stage('Publish Robot Test Reports') {
-              when {
-                anyOf {
-                  expression { env.BRANCH_NAME.startsWith('feature') }
-                  expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
-                  expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
-                  branch 'master'
-                }
-              }
               steps {
                 dir('./api-tests') {
                   robot(
@@ -205,8 +206,8 @@ pipeline {
         stage('Quality and Security Analysis') {
           when {
             anyOf {
-              expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
-              expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
+              expression { script{ env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+              expression { script{ env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' } }
               branch 'master'
             }
           }
@@ -281,6 +282,13 @@ pipeline {
       echo "Build display name: ${env.BUILD_DISPLAY_NAME}"
       echo "Build number: ${env.BUILD_NUMBER}"
       echo "Build tag: ${env.BUILD_TAG}"
+      echo "Branch name: ${env.BRANCH_NAME}"
+
+      script {
+        if (env.CHANGE_TARGET) {
+          echo "Pull request from `${env.CHANGE_BRANCH}` to `${env.CHANGE_TARGET}`"
+        }
+      }
 
       script {
         def causes = currentBuild.getBuildCauses()
