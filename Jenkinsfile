@@ -111,48 +111,77 @@ pipeline {
       }
     }
 
-    stage('Run Robot Smoke Tests') {
-      when {
-        anyOf {
-          branch 'develop'
-          expression { env.CHANGE_TARGET == 'develop' }
-          expression { env.BRANCH_NAME.startsWith('feature') }
-        }
-      }
+    stage('Run Tests') {
+      parallel {
+        stage('Run Robot Smoke Tests') {
+          when {
+            anyOf {
+              branch 'develop'
+              expression { env.CHANGE_TARGET == 'develop' }
+              expression { env.BRANCH_NAME.startsWith('feature') }
+            }
+          }
 
-      steps {
-        echo 'Smoke tests pending...'
+          steps {
+            echo 'Smoke tests pending...'
 
-        script {
-          try {
-            runRobotTests('smoke')
-          } catch (Exception e) { }
-        }
+            script {
+              try {
+                runRobotTests('smoke')
+              } catch (Exception e) { }
+            }
 
-        echo 'Smoke tests done.'
-      }
-    }
-
-
-    stage('Run Robot Full Tests') {
-      when {
-        anyOf {
-          branch 'master'
-          expression { env.CHANGE_TARGET == 'master' }
-          expression { env.BRANCH_NAME.startsWith('release') }
-        }
-      }
-
-      steps {
-        echo "Full tests pending..."
-
-        script {
-          try {
-            runRobotTests('all')
-          } catch (Exception e) { }
+            echo 'Smoke tests done.'
+          }
         }
 
-        echo 'Full tests done.'
+        stage('Run Robot Full Tests') {
+          when {
+            anyOf {
+              branch 'master'
+              expression { env.CHANGE_TARGET == 'master' }
+              expression { env.BRANCH_NAME.startsWith('release') }
+            }
+          }
+
+          steps {
+            echo "Full tests pending..."
+
+            script {
+              try {
+                runRobotTests('all')
+              } catch (Exception e) { }
+            }
+
+            echo 'Full tests done.'
+          }
+        }
+
+        stage ('Run SonarQube Analysis') {
+          when {
+            anyOf {
+              branch 'master'
+              expression { env.CHANGE_TARGET == 'master' }
+              branch 'develop'
+              expression { env.CHANGE_TARGET == 'develop' }
+              expression { env.BRANCH_NAME.startsWith('release') }
+            }
+          }
+
+          environment {
+            SONAR_SCANNER = tool name: 'SonarQubeScanner-7.0.2'
+            SONAR_PROJECT_KEY = "recipe-suggester-ai-agent-api"
+          }
+
+          steps {
+            dir('./api') {
+              withSonarQubeEnv('SonarQube') {
+                sh "${SONAR_SCANNER}/bin/sonar-scanner -Dsonar.projectKey=${env.SONAR_PROJECT_KEY}"
+              }
+            }
+          }
+        }
+
       }
     }
 
@@ -171,32 +200,6 @@ pipeline {
           )
         }
       }
-    }
-
-    stage ('Run SonarQube Analysis') {
-      when {
-        anyOf {
-          branch 'master'
-          expression { env.CHANGE_TARGET == 'master' }
-          branch 'develop'
-          expression { env.CHANGE_TARGET == 'develop' }
-          expression { env.BRANCH_NAME.startsWith('release') }
-        }
-      }
-
-      environment {
-        SONAR_SCANNER = tool name: 'SonarQubeScanner-7.0.2'
-        SONAR_PROJECT_KEY = "recipe-suggester-ai-agent-api"
-      }
-
-      steps {
-        dir('./api') {
-          withSonarQubeEnv('SonarQube') {
-            sh "${SONAR_SCANNER}/bin/sonar-scanner -Dsonar.projectKey=${env.SONAR_PROJECT_KEY}"
-          }
-        }
-      }
-
     }
 
     stage('Quality Gate') {
