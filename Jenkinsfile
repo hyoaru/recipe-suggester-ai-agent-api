@@ -95,8 +95,8 @@ pipeline {
           when {
             anyOf {
               expression { env.BRANCH_NAME.startsWith('feature') }
-              expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
-              expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
+              expression { script{ env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+              expression { script{ env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' } }
               branch 'master'
             }
           }
@@ -150,8 +150,8 @@ pipeline {
             stage('Run Robot Regression Tests') {
               when {
                 anyOf {
-                  expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
-                  expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
+                  expression { script{ env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+                  expression { script{ env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' } }
                 }
               }
 
@@ -206,8 +206,8 @@ pipeline {
         stage('Quality and Security Analysis') {
           when {
             anyOf {
-              expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
-              expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
+              expression { script { env.BRANCH_NAME?.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+              expression { script { env.BRANCH_NAME?.startsWith('release') && env.CHANGE_TARGET == 'master' } }
               branch 'master'
             }
           }
@@ -286,7 +286,7 @@ pipeline {
 
       script {
         if (env.CHANGE_TARGET) {
-          echo "Pull request from branch: ${env.CHANGE_BRANCH} to branch: ${env.CHANGE_TARGET}"
+          echo "Pull request from `${env.CHANGE_BRANCH}` to `${env.CHANGE_TARGET}`"
         }
       }
 
