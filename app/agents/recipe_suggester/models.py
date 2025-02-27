@@ -6,7 +6,6 @@ from pydantic import BaseModel
 class Recipe(BaseModel):
     name: str
     description: str
-    category: str
     ingredients: List[str]
     steps: List[str]
 
