@@ -282,6 +282,13 @@ pipeline {
       echo "Build display name: ${env.BUILD_DISPLAY_NAME}"
       echo "Build number: ${env.BUILD_NUMBER}"
       echo "Build tag: ${env.BUILD_TAG}"
+      echo "Branch name: ${env.BRANCH_NAME}"
+
+      script {
+        if (env.CHANGE_TARGET) {
+          echo "Pull request from branch: ${env.CHANGE_BRANCH} to branch: ${env.CHANGE_TARGET}"
+        }
+      }
 
       script {
         def causes = currentBuild.getBuildCauses()
