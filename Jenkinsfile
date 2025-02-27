@@ -92,6 +92,15 @@ pipeline {
     stage('Run Tests and Quality Analysis') {
       parallel {
         stage('Run Tests') {
+          when {
+            anyOf {
+              expression { env.BRANCH_NAME.startsWith('feature') }
+              expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
+              expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
+              branch 'master'
+            }
+          }
+
           stages {
             stage('Build Docker Images') {
               steps {
@@ -176,14 +185,6 @@ pipeline {
             }
 
             stage('Publish Robot Test Reports') {
-              when {
-                anyOf {
-                  expression { env.BRANCH_NAME.startsWith('feature') }
-                  expression { env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' }
-                  expression { env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' }
-                  branch 'master'
-                }
-              }
               steps {
                 dir('./api-tests') {
                   robot(
