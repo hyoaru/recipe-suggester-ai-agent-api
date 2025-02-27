@@ -3,7 +3,6 @@ pipeline {
 
   environment {
     sanitized_branch_name = env.BRANCH_NAME.replaceAll('/', '-')
-    API_TESTS_REPO_URL = 'https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git'
 
     DOCKER_NETWORK_NAME = "recipe_suggester_ai_agent_network_${env.sanitized_branch_name}_${env.BUILD_ID}"
     DOCKER_CONTAINER_NAME_API = "recipe_suggester_ai_agent_api_${env.sanitized_branch_name}_${env.BUILD_ID}"
@@ -11,10 +10,6 @@ pipeline {
     DOCKER_IMAGE_NAME_API_TESTS = 'recipe_suggester_ai_agent_api_tests'
     DOCKER_IMAGE_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production_build_${env.BUILD_ID}"
     DOCKER_CONTAINER_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production"
-
-    // Services environment variables
-    OPENAI_API_KEY = credentials('OPENAI_API_KEY')
-    API_BASE_URL = "http://${env.DOCKER_CONTAINER_NAME_API}:7000"
   }
 
   options {
@@ -46,6 +41,9 @@ pipeline {
         }
 
         stage('Checkout API-Tests Source Code') {
+          environment {
+            API_TESTS_REPO_URL = 'https://github.com/hyoaru/recipe-suggester-ai-agent-api-tests.git'
+          }
           steps {
             dir('api-tests') {
               echo 'Cloning API-Tests repository...'
@@ -60,6 +58,9 @@ pipeline {
     stage("Populate Environment Variables") {
       parallel {
         stage('Populate Api Environment Variables') {
+          environment {
+            OPENAI_API_KEY = credentials('OPENAI_API_KEY')
+          }
           steps {
             script {
               writeEnvFile("./api", [
@@ -70,6 +71,9 @@ pipeline {
         }
 
         stage('Populate Api-Tests Environment Variables') {
+          environment {
+            API_BASE_URL = "http://${env.DOCKER_CONTAINER_NAME_API}:7000"
+          }
           steps {
             script {
               writeEnvFile("./api-tests", [
