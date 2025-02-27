@@ -95,8 +95,8 @@ pipeline {
           when {
             anyOf {
               expression { env.BRANCH_NAME.startsWith('feature') }
-              expression { script{ env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
-              expression { script{ env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' } }
+              expression { script { env.CHANGE_BRANCH.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+              expression { script { env.CHANGE_BRANCH.startsWith('release') && env.CHANGE_TARGET == 'master' } }
               branch 'master'
             }
           }
@@ -150,8 +150,8 @@ pipeline {
             stage('Run Robot Regression Tests') {
               when {
                 anyOf {
-                  expression { script{ env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
-                  expression { script{ env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' } }
+                  expression { script { env.CHANGE_BRANCH.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+                  expression { script { env.CHANGE_BRANCH.startsWith('release') && env.CHANGE_TARGET == 'master' } }
                 }
               }
 
@@ -206,8 +206,8 @@ pipeline {
         stage('Quality and Security Analysis') {
           when {
             anyOf {
-              expression { script { env.BRANCH_NAME?.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
-              expression { script { env.BRANCH_NAME?.startsWith('release') && env.CHANGE_TARGET == 'master' } }
+              expression { script{ env.BRANCH_NAME.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
+              expression { script{ env.BRANCH_NAME.startsWith('release') && env.CHANGE_TARGET == 'master' } }
               branch 'master'
             }
           }
