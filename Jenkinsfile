@@ -427,7 +427,7 @@ void runApiContainer(String environment) {
           --name ${env.DOCKER_CONTAINER_NAME_API_STAGING} \
           --network host \
           -v \$(pwd):/app \
-          ${env.DOCKER_IMAGE_NAME_API_STAGING} 
+          ${env.DOCKER_IMAGE_NAME_API_STAGING} fastapi run main.py --host 0.0.0.0 --port 9000
       """
     } else if (environment == 'test') {
       sh """
