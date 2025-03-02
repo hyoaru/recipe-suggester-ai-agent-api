@@ -268,7 +268,7 @@ pipeline {
             sh 'echo "Using docker version: $(docker --version)"'
 
             script {
-              buildDockerImage('./api', env.DOCKER_IMAGE_NAME_API_PRODUCTION)
+              buildDockerImage('./api', env.DOCKER_IMAGE_NAME_API_STAGING)
             }
 
             sh 'docker images'
