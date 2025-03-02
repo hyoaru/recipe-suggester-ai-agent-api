@@ -10,6 +10,8 @@ pipeline {
     DOCKER_IMAGE_NAME_API_TESTS = 'recipe_suggester_ai_agent_api_tests'
     DOCKER_IMAGE_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production_build_${env.BUILD_ID}"
     DOCKER_CONTAINER_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production"
+    DOCKER_IMAGE_NAME_API_STAGING = "recipe_suggester_ai_agent_api_staging_build_${env.BUILD_ID}"
+    DOCKER_CONTAINER_NAME_API_STAGING = "recipe_suggester_ai_agent_api_staging"
   }
 
   options {
@@ -95,9 +97,9 @@ pipeline {
           when {
             anyOf {
               expression { env.BRANCH_NAME.startsWith('feature') }
-              expression { script { env.CHANGE_BRANCH?.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
-              expression { script { env.CHANGE_BRANCH?.startsWith('release') && env.CHANGE_TARGET == 'master' } }
-              branch 'master'
+              expression { env.CHANGE_TARGET == 'develop' }
+              expression { env.CHANGE_TARGET == 'staging' }
+              expression { env.CHANGE_TARGET == 'master' }
             }
           }
 
@@ -116,87 +118,110 @@ pipeline {
                 echo 'Docker images built'
               }
             }
-
-            stage('Run API') {
-              steps {
-                echo "Creating docker network for API: ${env.DOCKER_NETWORK_NAME}..."
-                sh "docker network create ${env.DOCKER_NETWORK_NAME}"
-                echo 'Docker network created.'
-
-                script { runApiContainer('test') }
-                sh 'docker ps -a'
-              }
-            }
-
-            stage('Run Robot Smoke Tests') {
-              when {
-                expression { env.BRANCH_NAME.startsWith('feature') }
-              }
-
-              steps {
-                echo 'Smoke tests pending...'
-
-                script {
-                  try {
-                    runRobotTests('smoke')
-                  } catch (Exception e) { }
+            
+            stage('Run Instance Independent Tests') {
+              when { expression { env.BRANCH_NAME.startsWith('feature') } }
+              stages {
+                stage('Run Unit Tests') {
+                  steps {
+                    echo 'Running unit tests...'
+                    echo 'Ran unit tests.'
+                  }
                 }
-
-                echo 'Smoke tests done.'
               }
             }
 
-
-            stage('Run Robot Regression Tests') {
+            stage ('Run Instance Dependent Tests') {
               when {
                 anyOf {
-                  expression { script { env.CHANGE_BRANCH?.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
-                  expression { script { env.CHANGE_BRANCH?.startsWith('release') && env.CHANGE_TARGET == 'master' } }
+                  expression { env.CHANGE_TARGET == 'develop' }
+                  expression { env.CHANGE_TARGET == 'staging' }
+                  expression { env.CHANGE_TARGET == 'master' }
                 }
               }
+              stages {
+                stage('Run API') {
+                  steps {
+                    echo "Creating docker network for API: ${env.DOCKER_NETWORK_NAME}..."
+                    sh "docker network create ${env.DOCKER_NETWORK_NAME}"
+                    echo 'Docker network created.'
 
-              steps {
-                echo "Full tests pending..."
-
-                script {
-                  try {
-                    runRobotTests('regression')
-                  } catch (Exception e) { }
+                    script { runApiContainer('test') }
+                    sh 'docker ps -a'
+                  }
                 }
 
-                echo 'Full tests done.'
-              }
-            }
+                stage('Run Robot Smoke Tests') {
+                  when {
+                    expression { env.BRANCH_NAME.startsWith('develop') }
+                  }
 
-            stage('Run Robot Full Tests') {
-              when { branch 'master' }
+                  steps {
+                    echo 'Smoke tests pending...'
 
-              steps {
-                echo "Full tests pending..."
+                    script {
+                      try {
+                        runRobotTests('smoke')
+                      } catch (Exception e) { }
+                    }
 
-                script {
-                  try {
-                    runRobotTests('all')
-                  } catch (Exception e) { }
+                    echo 'Smoke tests done.'
+                  }
                 }
 
-                echo 'Full tests done.'
-              }
-            }
 
-            stage('Publish Robot Test Reports') {
-              steps {
-                dir('./api-tests') {
-                  robot(
-                    outputPath: "./results",
-                    passThreshold: 90.0,
-                    unstableThreshold: 80.0,
-                    disableArchiveOutput: true,
-                    outputFileName: "output.xml",
-                    logFileName: 'log.html',
-                    reportFileName: 'report.html',
-                    countSkippedTests: true,
-                  )
+                stage('Run Robot Regression Tests') {
+                  when {
+                    anyOf {
+                      expression { env.CHANGE_TARGET == 'staging' }
+                      expression { env.CHANGE_TARGET == 'master' }
+                    }
+                  }
+
+                  steps {
+                    echo "Full tests pending..."
+
+                    script {
+                      try {
+                        runRobotTests('regression')
+                      } catch (Exception e) { }
+                    }
+
+                    echo 'Full tests done.'
+                  }
+                }
+
+                stage('Run Robot Full Tests') {
+                  when { branch 'master' }
+
+                  steps {
+                    echo "Full tests pending..."
+
+                    script {
+                      try {
+                        runRobotTests('all')
+                      } catch (Exception e) { }
+                    }
+
+                    echo 'Full tests done.'
+                  }
+                }
+
+                stage('Publish Robot Test Reports') {
+                  steps {
+                    dir('./api-tests') {
+                      robot(
+                        outputPath: "./results",
+                        passThreshold: 90.0,
+                        unstableThreshold: 80.0,
+                        disableArchiveOutput: true,
+                        outputFileName: "output.xml",
+                        logFileName: 'log.html',
+                        reportFileName: 'report.html',
+                        countSkippedTests: true,
+                      )
+                    }
+                  }
                 }
               }
             }
@@ -206,9 +231,9 @@ pipeline {
         stage('Quality and Security Analysis') {
           when {
             anyOf {
-              expression { script{ env.CHANGE_BRANCH?.startsWith('feature') && env.CHANGE_TARGET == 'develop' } }
-              expression { script{ env.CHANGE_BRANCH?.startsWith('release') && env.CHANGE_TARGET == 'master' } }
-              branch 'master'
+              expression { env.CHANGE_TARGET == 'develop' }
+              expression { env.CHANGE_TARGET == 'staging' }
+              expression { env.CHANGE_TARGET == 'master' }
             }
           }
 
@@ -236,6 +261,37 @@ pipeline {
                   }
                 }
               }
+            }
+          }
+        }
+      }
+    }
+
+
+    stage('Deploy to Staging') {
+      when { branch 'staging' }
+      stages {
+        stage ('Build Docker Image For Staging') {
+          steps {
+            echo 'Building api docker image for staging...'
+            sh 'echo "Using docker version: $(docker --version)"'
+
+            script {
+              buildDockerImage('./api', env.DOCKER_IMAGE_NAME_API_PRODUCTION)
+            }
+
+            sh 'docker images'
+            echo 'Docker api image for staging built.'
+          }
+        }
+
+
+        stage ('Deploy') {
+          steps {
+            script {
+              // Stop the staging api container to then run the rebuilt image
+              stopApiContainer('staging')
+              runApiContainer('staging')
             }
           }
         }
@@ -344,6 +400,9 @@ void stopApiContainer(String environment) {
   if (environment == 'production') {
     containerName = env.DOCKER_CONTAINER_NAME_API_PRODUCTION
     echo "Stopping production API with container name: ${containerName}..."
+  } else if (environment == 'staging') {
+    containerName = env.DOCKER_CONTAINER_NAME_API_STAGING
+    echo "Stopping staging API with container name: ${containerName}..."
   } else if (environment == 'test') {
     containerName = env.DOCKER_CONTAINER_NAME_API
     echo "Stopping test API with container name: ${containerName}..."
@@ -373,6 +432,14 @@ void runApiContainer(String environment) {
           --network host \
           -v \$(pwd):/app \
           ${env.DOCKER_IMAGE_NAME_API_PRODUCTION} 
+      """
+    } else if (environment == 'staging') {
+      sh """
+        docker run -d --rm \
+          --name ${env.DOCKER_CONTAINER_NAME_API_STAGING} \
+          --network host \
+          -v \$(pwd):/app \
+          ${env.DOCKER_IMAGE_NAME_API_STAGING} 
       """
     } else if (environment == 'test') {
       sh """
