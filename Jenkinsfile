@@ -5,12 +5,14 @@ pipeline {
     sanitized_branch_name = env.BRANCH_NAME.replaceAll('/', '-')
 
     DOCKER_NETWORK_NAME = "recipe_suggester_ai_agent_network_${env.sanitized_branch_name}_${env.BUILD_ID}"
-    DOCKER_CONTAINER_NAME_API = "recipe_suggester_ai_agent_api_${env.sanitized_branch_name}_${env.BUILD_ID}"
-    DOCKER_IMAGE_NAME_API = 'recipe_suggester_ai_agent_api'
-    DOCKER_IMAGE_NAME_API_TESTS = 'recipe_suggester_ai_agent_api_tests'
-    DOCKER_IMAGE_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production_build_${env.BUILD_ID}"
-    DOCKER_CONTAINER_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production"
+    DOCKER_IMAGE_NAME_API_ROBOT_TEST = 'recipe_suggester_ai_agent_api_robot_test'
+
+    DOCKER_IMAGE_NAME_API_TEST = 'recipe_suggester_ai_agent_api_test'
     DOCKER_IMAGE_NAME_API_STAGING = "recipe_suggester_ai_agent_api_staging_build_${env.BUILD_ID}"
+    DOCKER_IMAGE_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production_build_${env.BUILD_ID}"
+
+    DOCKER_CONTAINER_NAME_API_TEST = "recipe_suggester_ai_agent_api_${env.sanitized_branch_name}_${env.BUILD_ID}"
+    DOCKER_CONTAINER_NAME_API_PRODUCTION = "recipe_suggester_ai_agent_api_production"
     DOCKER_CONTAINER_NAME_API_STAGING = "recipe_suggester_ai_agent_api_staging"
   }
 
@@ -76,7 +78,7 @@ pipeline {
 
             stage('Populate Api-Tests Environment Variables') {
               environment {
-                API_BASE_URL = "http://${env.DOCKER_CONTAINER_NAME_API}:7000"
+                API_BASE_URL = "http://${env.DOCKER_CONTAINER_NAME_API_TEST}:7000"
               }
               steps {
                 script {
@@ -110,15 +112,15 @@ pipeline {
                 sh 'echo "Using docker version: $(docker --version)"'
 
                 script {
-                  buildDockerImage('./api', env.DOCKER_IMAGE_NAME_API)
-                  buildDockerImage('./api-tests', env.DOCKER_IMAGE_NAME_API_TESTS)
+                  buildDockerImage('./api', env.DOCKER_IMAGE_NAME_API_TEST)
+                  buildDockerImage('./api-tests', env.DOCKER_IMAGE_NAME_API_ROBOT_TEST)
                 }
 
                 sh 'docker images'
                 echo 'Docker images built'
               }
             }
-            
+
             stage('Run Instance Independent Tests') {
               when { expression { env.BRANCH_NAME.startsWith('feature') } }
               stages {
@@ -153,7 +155,7 @@ pipeline {
 
                 stage('Run Robot Smoke Tests') {
                   when {
-                    expression { env.BRANCH_NAME.startsWith('develop') }
+                    expression { env.CHANGE_TARGET == 'develop' }
                   }
 
                   steps {
@@ -179,7 +181,7 @@ pipeline {
                   }
 
                   steps {
-                    echo "Full tests pending..."
+                    echo "Regression tests pending..."
 
                     script {
                       try {
@@ -187,28 +189,17 @@ pipeline {
                       } catch (Exception e) { }
                     }
 
-                    echo 'Full tests done.'
-                  }
-                }
-
-                stage('Run Robot Full Tests') {
-                  when { branch 'master' }
-
-                  steps {
-                    echo "Full tests pending..."
-
-                    script {
-                      try {
-                        runRobotTests('all')
-                      } catch (Exception e) { }
-                    }
-
-                    echo 'Full tests done.'
+                    echo 'Regression tests done.'
                   }
                 }
 
                 stage('Publish Robot Test Reports') {
                   steps {
+                    script {
+                      stopApiContainer('test')
+                      sh "docker network rm ${DOCKER_NETWORK_NAME}"
+                    }
+
                     dir('./api-tests') {
                       robot(
                         outputPath: "./results",
@@ -352,10 +343,7 @@ pipeline {
           echo "Build cause: ${cause.shortDescription}"
         }
 
-        stopApiContainer('test')
         cleanDanglingImages()
-        sh "docker network rm ${DOCKER_NETWORK_NAME}"
-
 
         // Prune images every 5 builds based on BUILD_ID
         if (env.BUILD_ID.toInteger() % 5 == 0) {
@@ -381,9 +369,9 @@ void cleanDanglingImages() {
 
 void runRobotTests(String testType) {
   dir('./api-tests') {
-    docker.image(env.DOCKER_IMAGE_NAME_API_TESTS).inside("--network=${env.DOCKER_NETWORK_NAME}") {
+    docker.image(env.DOCKER_IMAGE_NAME_API_ROBOT_TEST).inside("--network=${env.DOCKER_NETWORK_NAME}") {
       echo 'Running health check...'
-      sh "curl ${env.DOCKER_CONTAINER_NAME_API}:7000/api/operations/health"
+      sh "curl ${env.DOCKER_CONTAINER_NAME_API_TEST}:7000/api/operations/health"
 
       if (testType != 'all') {
         sh "pabot --include ${testType} --outputdir ./results --testlevelsplit ./tests/suites"
@@ -404,10 +392,10 @@ void stopApiContainer(String environment) {
     containerName = env.DOCKER_CONTAINER_NAME_API_STAGING
     echo "Stopping staging API with container name: ${containerName}..."
   } else if (environment == 'test') {
-    containerName = env.DOCKER_CONTAINER_NAME_API
+    containerName = env.DOCKER_CONTAINER_NAME_API_TEST
     echo "Stopping test API with container name: ${containerName}..."
   } else {
-    error "Invalid environment specified: ${environment}. Please use 'production' or 'test'."
+    error "Invalid environment specified: ${environment}. Please use 'production' or 'staging' or 'test'."
   }
 
   // Check if the container exists
@@ -444,13 +432,13 @@ void runApiContainer(String environment) {
     } else if (environment == 'test') {
       sh """
         docker run -d --rm \
-          --name ${env.DOCKER_CONTAINER_NAME_API} \
+          --name ${env.DOCKER_CONTAINER_NAME_API_TEST} \
           --network=${env.DOCKER_NETWORK_NAME} \
           -v \$(pwd):/app \
-          ${env.DOCKER_IMAGE_NAME_API} fastapi run main.py --host 0.0.0.0 --port 7000
+          ${env.DOCKER_IMAGE_NAME_API_TEST} fastapi run main.py --host 0.0.0.0 --port 7000
       """
     } else {
-      error "Invalid environment specified: ${environment}. Please use 'production' or 'test'."
+      error "Invalid environment specified: ${environment}. Please use 'production' or 'staging' or 'test'."
     }
   }
 
