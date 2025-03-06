@@ -7,6 +7,7 @@ class Recipe(BaseModel):
     name: str
     description: str
     ingredients: List[str]
+    category: str
     steps: List[str]
 
 
