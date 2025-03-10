@@ -1,29 +1,25 @@
-FROM ghcr.io/astral-sh/uv:python3.12-alpine AS base
-
 # Build stage
-FROM base AS builder
+FROM ghcr.io/astral-sh/uv:python3.12-alpine AS builder
 
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
-WORKDIR /api
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
+WORKDIR /app
+
+RUN \
+  --mount=type=bind,source=.python-version,target=.python-version \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=cache,target=/root/.cache/uv \
+  uv sync --no-install-project --no-dev
 
 COPY \
-  pyproject.toml \
-  uv.lock \
-  .python-version \
   .env \
   main.py \
-  /api/
-
-COPY \
   ./app \
-  /api/app
-
-RUN --mount=type=cache,target=/root/.cache/uv \ 
-  uv sync --no-dev
+  /app/
 
 # Run stage
-FROM base AS runner
-WORKDIR /api
+FROM python:3.12-alpine AS runner
+WORKDIR /app
 
 RUN apk add curl bash && apk cache clean \
   && addgroup -g 1000 nonroot \
@@ -31,9 +27,9 @@ RUN apk add curl bash && apk cache clean \
   && touch app.log \
   && chown 1000:1000 app.log
 
-COPY --from=builder --chown=root:root --chmod=755 /api /api
+COPY --from=builder --chown=root:root --chmod=755 /app /app
 USER nonroot
 
-ENV PATH="/api/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH"
 
 CMD [ "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000" ]
