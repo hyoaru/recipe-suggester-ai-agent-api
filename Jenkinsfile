@@ -417,16 +417,14 @@ void runApiContainer(String environment) {
       sh """
         docker run -d --rm \
           --name ${env.DOCKER_CONTAINER_NAME_API_PRODUCTION} \
-          --network host \
-          -v \$(pwd):/app \
+          -p 8000:8000 \
           ${env.DOCKER_IMAGE_NAME_API_PRODUCTION} 
       """
     } else if (environment == 'staging') {
       sh """
         docker run -d --rm \
           --name ${env.DOCKER_CONTAINER_NAME_API_STAGING} \
-          --network host \
-          -v \$(pwd):/app \
+          -p 9000:8000 \
           ${env.DOCKER_IMAGE_NAME_API_STAGING} fastapi run main.py --host 0.0.0.0 --port 9000
       """
     } else if (environment == 'test') {
@@ -434,7 +432,6 @@ void runApiContainer(String environment) {
         docker run -d --rm \
           --name ${env.DOCKER_CONTAINER_NAME_API_TEST} \
           --network=${env.DOCKER_NETWORK_NAME} \
-          -v \$(pwd):/app \
           ${env.DOCKER_IMAGE_NAME_API_TEST} fastapi run main.py --host 0.0.0.0 --port 7000
       """
     } else {
